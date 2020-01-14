@@ -1,0 +1,128 @@
+<html>
+  <head>
+    <title>Socket.IO chat</title>
+    <style>
+    * { 
+        margin: 0; 
+        padding: 0; 
+        box-sizing: border-box; 
+    }
+
+    body{
+        display: flex;
+        font-size: 10px;
+        height: 100vh;
+    }
+
+    aside{
+        width: 20%;
+        background: #222;
+        color: #f1f1f1;
+    }
+
+    section{
+        width: 80%;
+        height: 100%;
+        border-left: 1px solid black;
+        font-size: 1.5em;
+        background: #333;
+        color: #f1f1f1;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .messages_holder{
+      height: 92%;
+      overflow: scroll;
+      overflow-x: hidden;
+      font-size: 1.2em;
+    }
+
+    .messages_holder li{
+      list-style-type: none;
+    }
+
+    .messages_holder li img{
+      width: 30%;
+    }
+    
+    .input_holder{
+      width: 100%;
+      height: 40px;
+    }
+
+    .input_holder form input{
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 1.5em;
+    }
+
+    ::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    ::-webkit-scrollbar-track {
+      -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3); 
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      border-radius: 10px;
+      -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.5); 
+    }
+
+    </style>
+  </head>
+  <body>
+    <aside>
+      <div class='aside_holder'>
+        <ul id='online'>
+        </ul>
+      </div>
+    </aside>
+    <section>
+      <div class='messages_holder'>
+        <ul id="messages"></ul>
+      </div>
+      <div class='input_holder'>
+        <form action="">
+          <input id="m" autocomplete="off" /><button style='display: none;'>Send</button>
+        </form>
+      </div>
+    </section>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+      $(function () {
+        var socket = io();
+        socket.on('set state', e => {
+          let msgs = ''
+          let users = ''
+          for(let i of e.messages){
+            msgs += '<li>' + i.id + ' : ' + i.msg + '</li>'
+          }
+          for(let i of e.users){
+            users += '<li>' + i + '</li>'
+          }
+          $('#messages').html(msgs)
+          $('#online').html(users)
+          console.log('State loaded successfully.')
+        })
+        $('form').submit(function(e){
+          e.preventDefault(); // prevents page reloading
+          socket.emit('new message', { id: socket.id, nick: null, avatar: null, msg: $('#m').val() });
+          $('#m').val('');
+          return false;
+        });
+        socket.on('new message', evt => {
+          $('#messages').append($('<li>').text(evt));
+        });
+      });
+    </script>
+  </body>
+</html>
