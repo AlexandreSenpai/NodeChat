@@ -18,6 +18,8 @@
         width: 20%;
         background: #222;
         color: #f1f1f1;
+        padding: 10px;
+        font-size: 1.3em;
     }
 
     section{
@@ -45,7 +47,7 @@
     }
 
     .messages_holder li img{
-      width: 30%;
+      width: 10%;
     }
     
     .input_holder{
@@ -81,6 +83,7 @@
   <body>
     <aside>
       <div class='aside_holder'>
+        <div>Online</div>
         <ul id='online'>
         </ul>
       </div>
@@ -100,27 +103,34 @@
     <script>
       $(function () {
         var socket = io();
+        var user = prompt('Selecione seu nick:')
+        if(!user){
+          user = 'anônimo'
+        }
+        socket.emit('set nickname', user)
         socket.on('set state', e => {
           let msgs = ''
-          let users = ''
           for(let i of e.messages){
-            msgs += '<li>' + i.id + ' : ' + i.msg + '</li>'
-          }
-          for(let i of e.users){
-            users += '<li>' + i + '</li>'
+            msgs += '<li>' + e.users[0][i.id].nickname + ' : ' + i.msg + '</li>'
           }
           $('#messages').html(msgs)
-          $('#online').html(users)
           console.log('State loaded successfully.')
+        })
+        socket.on('session changed', user => {
+          let users = ''
+          for(let i in user.users[0]){
+            users += '<li>' + user.users[0][i].nickname + '</li>'
+          }
+          $('#online').html(users)
         })
         $('form').submit(function(e){
           e.preventDefault(); // prevents page reloading
-          socket.emit('new message', { id: socket.id, nick: null, avatar: null, msg: $('#m').val() });
+          socket.emit('new message', { id: socket.id, msg: $('#m').val() });
           $('#m').val('');
           return false;
         });
         socket.on('new message', evt => {
-          $('#messages').append($('<li>').text(evt));
+          $('#messages').append($('<li>').html(evt));
         });
       });
     </script>

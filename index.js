@@ -10,19 +10,29 @@ app.get('/', (req, res) => {
 
 socket.on('connection', e => {
     state.set_user_state(e.id).then(res => {
-        socket.emit('set state', state.state)
+        socket.emit('session changed', state.get_state())
+        socket.emit('set state', state.get_state())
         console.log(res)
     })
+
+    e.on('set nickname', evt => {
+        state.set_user_property('nickname', e.id, evt).then(res => {
+            socket.emit('session changed', state.get_state())
+            socket.emit('set state', state.get_state())
+            console.log(res)
+        })
+    })
+
     e.on('new message', evt => {
-        state.set_message_state(evt).then(e => { 
-            socket.emit('new message', evt.id + ' : ' + evt.msg)
-            socket.emit('set state', state.state)
-            console.log(e)
+        state.set_message_state(evt).then(res => { 
+            let current_state = state.get_state()
+            socket.emit('new message', current_state.users[0][evt.id].nickname + ' : ' + evt.msg)
+            console.log(res)
         })
     })
     e.on('disconnect', reason => {
         state.remove_user_state(e.id).then(res => {
-            socket.emit('set state', state.state)
+            socket.emit('session changed', state.get_state())
             console.log(res)
         })
     })    
