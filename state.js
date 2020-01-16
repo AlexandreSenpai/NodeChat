@@ -21,6 +21,7 @@ module.exports = class State{
 
     set_message_state = (new_message) => {
         return new Promise(resolve => {
+            new_message['nickname'] = this.state.users[0][new_message.id].nickname
             this.state.messages.push(new_message)
             resolve('New message has been added to chat history successfully.')
         })

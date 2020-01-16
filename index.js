@@ -12,6 +12,7 @@ socket.on('connection', e => {
     state.set_user_state(e.id).then(res => {
         socket.emit('session changed', state.get_state())
         socket.emit('set state', state.get_state())
+        socket.emit('new message', '<span style="color: #2bff2b; font-weight: bolder">Maid : o usuário de nome ' + state.get_state().users[0][e.id].nickname + ' se conectou ao chat.</span>')
         console.log(res)
     })
 
@@ -31,8 +32,11 @@ socket.on('connection', e => {
         })
     })
     e.on('disconnect', reason => {
+        let current_state = state.get_state()
+        socket.emit('new message', '<span style="color: #ff2424; font-weight: bolder">Maid : o usuário de nome ' + current_state.users[0][e.id].nickname + ' se desconectou do chat.</span>')
         state.remove_user_state(e.id).then(res => {
             socket.emit('session changed', state.get_state())
+            console.log(state.get_state())
             console.log(res)
         })
     })    

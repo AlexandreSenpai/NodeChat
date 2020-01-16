@@ -111,7 +111,7 @@
         socket.on('set state', e => {
           let msgs = ''
           for(let i of e.messages){
-            msgs += '<li>' + e.users[0][i.id].nickname + ' : ' + i.msg + '</li>'
+            msgs += '<li>' + i.nickname + ' : ' + i.msg + '</li>'
           }
           $('#messages').html(msgs)
           console.log('State loaded successfully.')
@@ -127,6 +127,7 @@
           e.preventDefault(); // prevents page reloading
           socket.emit('new message', { id: socket.id, msg: $('#m').val() });
           $('#m').val('');
+          //$('.messages_holder').animate({scrollTop:1000},'10');
           return false;
         });
         socket.on('new message', evt => {
