@@ -33,6 +33,12 @@ async def serialize_message(message: Messages):
         "created_at": datetime.strftime(message.created_at, '%d/%m/%Y'), # type: ignore
         "updated_at": datetime.strftime(message.updated_at, '%d/%m/%Y'), # type: ignore
         "content": message.content,
+        "attachment": {
+            "id": message.attachment_id,
+            "uri": message.attachment_uri,
+            "type": message.attachment_type,
+            "mime": message.attachment_mime
+        } if bool(message.has_attachment) else None
     }
 
 async def serialize_simplified_chat(chat: Chats):

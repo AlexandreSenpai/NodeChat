@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from database.models.base import Base
@@ -25,5 +25,19 @@ class Messages(Base):
     chat_id = Column(Integer, ForeignKey("chats.id"))
     sender_id = Column(Integer, ForeignKey("users.id"))
     recipient_id = Column(Integer, ForeignKey("users.id"))
+    has_attachment = Column(Boolean, 
+                            unique=False, 
+                            nullable=True, 
+                            default=False)
+    attachment_id = Column(String,
+                           nullable=True)
+    attachment_uri = Column(String, 
+                            nullable=True)
+    attachment_mime = Column(String, 
+                             nullable=True, 
+                             unique=False)
+    attachment_type = Column(String,
+                             nullable=True,
+                             unique=False)
 
     chat = relationship("Chats", back_populates="messages", lazy="selectin")

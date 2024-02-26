@@ -1,5 +1,8 @@
+import asyncio
 from contextlib import asynccontextmanager
-import typing
+import datetime
+from uuid import uuid4
+from google.cloud import storage
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +15,8 @@ from database.utils.serializers import serialize_chat, serialize_message, serial
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from managers.chat import Attachment, ChatManager, ChatMessage, GroupMember
 
 database: SQLite = SQLite('sqlite+aiosqlite:////home/alexandresenpai/scripts/chat/server/database/chat.sqlite')
 
@@ -38,14 +43,7 @@ class NewChat(BaseModel):
     owner_id: int
     member_id: int
 
-connected_users: dict[int, WebSocket] = dict()
-
-async def notify_chat_members(message: Messages):
-    members = [message.recipient_id, message.sender_id]
-    print(members)
-    for member in members:
-        if member in connected_users:
-            await connected_users[member].send_json(await serialize_message(message))
+chat_manager = ChatManager()
 
 @server.post('/api/register')
 async def register_user(new_user: NewUser):
@@ -134,9 +132,30 @@ async def create_chat(new_chat: NewChat):
 
     return response
 
+class NewAttachment(BaseModel):
+    content_type: str
 
-@server.websocket('/chat/{user_id}')
-async def handle_chat_message(websocket: WebSocket, user_id: int):
+storage_client = storage.Client()
+
+@server.post('/api/attachments/create')
+async def generate_signed_url(new_attachment: NewAttachment):
+    bucket_name = 'tmp-mp3'
+    blob_name = str(uuid4())
+    
+    bucket = storage_client.bucket(bucket_name=bucket_name)
+    blob = bucket.blob(blob_name=blob_name)
+
+    url = blob.generate_signed_url(version="v4",
+                                   expiration=datetime.timedelta(minutes=15),
+                                   method="PUT",
+                                   content_type=new_attachment.content_type)
+
+    return {'url': url, 'id': blob_name}
+
+@server.websocket('/chat/{chat_id}/user/{user_id}')
+async def handle_chat_message(websocket: WebSocket, 
+                              chat_id: int, 
+                              user_id: int):
 
     await websocket.accept()
 
@@ -145,20 +164,32 @@ async def handle_chat_message(websocket: WebSocket, user_id: int):
         await websocket.close(400)
         return
     
-    connected_users[user_id] = websocket
-
-    print(f"Usuário {user_id} conectado: {connected_users}")
+    member = GroupMember(id=user_id,
+                         channel=websocket)
+    connected = await chat_manager.join(chat_id=chat_id,
+                                        member=member)
+    
+    if connected: print(f"Usuário {user_id} conectado ao chat {chat_id}")
+    asyncio.create_task(chat_manager.active_chats())
     
     try:
         while True:
             data = await websocket.receive_json()
+            
+            attachment = data['attachment']
+            has_attachment = attachment is not None
             
             print(data)
 
             chat_message = Messages(content=data["content"],
                                     chat_id=data["chat_id"],
                                     sender_id=data["sender_id"],
-                                    recipient_id=data["recipient_id"])
+                                    recipient_id=data["recipient_id"],
+                                    has_attachment=has_attachment,
+                                    attachment_id=attachment['id'] if has_attachment else None,
+                                    attachment_uri=f'https://storage.googleapis.com/tmp-mp3/{attachment['id']}' if has_attachment else None,
+                                    attachment_mime=attachment['content_type'] if has_attachment else None,
+                                    attachment_type=attachment['type'] if has_attachment else None)
             
             if database._session is None: continue
 
@@ -166,9 +197,27 @@ async def handle_chat_message(websocket: WebSocket, user_id: int):
                 session.add(chat_message)
                 await session.commit()
                 await session.refresh(chat_message)
+
+                message = ChatMessage(sender_id=data['sender_id'],
+                                      chat_id=data["chat_id"],
+                                      recipient_id=data["recipient_id"],
+                                      content=data["content"])
                 
-                await notify_chat_members(message=chat_message)
+                attachment = data['attachment']
+                if attachment is not None:
+                    message = ChatMessage(sender_id=data['sender_id'],
+                                          chat_id=data["chat_id"],
+                                          recipient_id=data["recipient_id"],
+                                          content=data["content"],
+                                          attachment=Attachment(id=attachment['id'],
+                                                                content_type=attachment['content_type'],
+                                                                type=attachment['type'],
+                                                                uri=f'https://storage.googleapis.com/tmp-mp3/{attachment['id']}'))
+                
+                await chat_manager.send_message(message=message)
     
     except WebSocketDisconnect:
-        del connected_users[user_id]
+        await chat_manager.disconnect(chat_id=chat_id,
+                                      member=member)
         print('Cliente desconectado.')
+        asyncio.create_task(chat_manager.active_chats())
