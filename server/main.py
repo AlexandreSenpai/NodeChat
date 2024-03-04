@@ -14,7 +14,6 @@ from database.models.messages import Messages
 from database.utils.serializers import serialize_chat, serialize_message, serialize_simplified_chat, serialize_simplified_user, serialize_user
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from managers.chat import Attachment, ChatManager, ChatMessage, GroupMember
 
